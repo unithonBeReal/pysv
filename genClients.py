@@ -7,6 +7,14 @@ from google.genai.types import Image
 from google import genai
 from task import VideoTask
 
+#VIDEO_MODEL_NAME = "veo-3.0-fast-generate-preview"
+VIDEO_MODEL_NAME = "veo-2.0-generate-001"
+RETRY_COUNT = 3
+
+PROMPT_TEMPLATE = """
+zoom in to the image and <business_name>
+"""
+
 # Load API keys from environment variable
 api_keys_str = os.getenv('GENAI_API_KEY', '')
 api_keys = [key.strip() for key in api_keys_str.split(',') if key.strip()]
@@ -32,10 +40,6 @@ def rotate_genai_client():
         current_client_index = (current_client_index + 1) % len(genai_clients)
         return genai_clients[current_client_index]
 
-PROMPT_TEMPLATE = """
-zoom in to the image and <business_name>
-"""
-
 def generate_prompt(task: VideoTask):
     return PROMPT_TEMPLATE.replace("<business_name>", task.options.business_name)
 
@@ -57,20 +61,23 @@ def generate_video_list(task: VideoTask, index_list: list[int]):
                 print(f"Error generating video for index {index}: {e}")
 
 def generate_video(task: VideoTask, index: int):
-    for i in range(3):
+    for i in range(RETRY_COUNT):
         try:
             inner_generate_video(task, index)
             break
         except Exception as e:
+            last_error = e
             print(e)
             rotate_genai_client()
+    raise last_error
 
 def inner_generate_video(task: VideoTask, index: int):
     client = get_current_genai_client()
     prompt = generate_prompt(task)
-    image = Image.from_file(location=task.get_wd_image_path(index))
+    image_path = task.get_image_path(index)
+    image = Image.from_file(location=image_path)
     operation = client.models.generate_videos(
-        model="veo-3.0-fast-generate-preview",
+        model=VIDEO_MODEL_NAME,
         prompt=prompt,
         image=image)
         
@@ -83,5 +90,5 @@ def inner_generate_video(task: VideoTask, index: int):
 
     video = operation.response.generated_videos[0]
     client.files.download(file=video.video)
-    video.video.save(task.get_wd_video_path(index))
+    video.video.save(task.get_video_path(index))
     print(f"saved video: {task.work_dir} {index}")

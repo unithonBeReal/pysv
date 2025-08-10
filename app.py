@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+from video_editor import cut_videos_task, merge_videos_task
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import os
@@ -31,7 +32,7 @@ def save_uploaded_images(task: VideoTask) -> list[int]:
 
     file_index = 1
     for file in files:
-        file_path = task.get_wd_image_path(file_index)
+        file_path = task.get_image_path(file_index)
         file.save(file_path)
 
         saved_file_index_list.append(file_index)
@@ -41,20 +42,26 @@ def save_uploaded_images(task: VideoTask) -> list[int]:
 
 @app.route("/api/create", methods=["POST"])
 def create():
-    if "options" not in request.files:
+    if "options" not in request.form:
         raise HTTPException(status_code=400, detail="No options provided")
-    video_options = VideoOptions(**json.loads(request.files["options"].read()))
+    video_options = VideoOptions(**json.loads(request.form.get("options")))
 
-    video_task = VideoTask.create_new(video_options)
-    print(f"work dir: {video_task.work_dir}")
-    print(f"options: {video_task.options}")
+    try:
+        video_task = VideoTask.create_new(video_options)
+        print(f"work dir: {video_task.work_dir}")
+        print(f"options: {video_task.options}")
 
-    saved_file_index_list = save_uploaded_images(video_task)
-    print(f"total saved files: {len(saved_file_index_list)}")
+        saved_file_index_list = save_uploaded_images(video_task)
+        print(f"total saved files: {len(saved_file_index_list)}")
 
-    generate_video_list(video_task, saved_file_index_list)
+        generate_video_list(video_task, saved_file_index_list)
+        cut_videos_task(video_task, saved_file_index_list)
+        merge_videos_task(video_task, saved_file_index_list)
 
-    return jsonify({"message": "Hello, World!", "status": "success"})
+        return jsonify({"message": "success", "status": "success"})
+    except Exception as e:
+        print(f"error: {e}")
+        return jsonify({"message": "error", "status": "error", "error": str(e)}), 500
 
 
 if __name__ == "__main__":
