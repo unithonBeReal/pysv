@@ -19,7 +19,7 @@ def set_config(key: str, value: str):
 def load_config():
     global config
     if os.path.exists(config_file_path):
-        with open(config_file_path, 'r') as f:
+        with open(config_file_path, 'r', encoding="utf-8") as f:
             config = json.load(f)
     else:
         print(f"Config file not found: {config_file_path}")

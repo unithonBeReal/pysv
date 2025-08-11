@@ -1,3 +1,5 @@
+import logging
+
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -18,6 +20,7 @@ if not FLASK_PORT:
 
 app = Flask(__name__)
 CORS(app)
+
 
 @app.route("/api/create", methods=["POST"])
 def create():
@@ -42,17 +45,20 @@ def create():
         return jsonify({"message": "success", "status": "success"})
 
     except Exception as e:
-        print(f"error: {e}")
+        logging.exception("/api/create")
         return jsonify({"message": "error", "status": "error", "error": str(e)}), 500
+
 
 @app.route("/api/config", methods=["GET"])
 def get_config():
     return jsonify(get_config_all())
 
+
 @app.route("/api/config/reload", methods=["GET"])
 def get_reload_config():
     load_config()
     return jsonify(get_config_all())
+
 
 @app.route("/api/config", methods=["POST"])
 def post_set_config():
@@ -60,6 +66,7 @@ def post_set_config():
     save_config()
     return Response(status=204)
 
+
 if __name__ == "__main__":
     load_config()
-    app.run(debug=True, host=FLASK_HOST, port=FLASK_PORT)
+    app.run(debug=False, use_reloader=False, host=FLASK_HOST, port=FLASK_PORT)

@@ -77,12 +77,7 @@ class VideoTask:
             }
 
             for future in as_completed(future_to_index):
-                index = future_to_index[future]
-                try:
-                    future.result()
-                    print(f"Completed video generation for index: {index}")
-                except Exception as e:
-                    print(f"Error generating video for index {index}: {e}")
+                future.result()
 
     def generate_video(self, index: int):
         prompt = self.generate_prompt()
