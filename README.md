@@ -37,6 +37,8 @@ cp env.example .env
 # Edit .env file
 FLASK_HOST=127.0.0.1
 FLASK_PORT=8000
+DATA_PATH=./data
+CONFIG_FILE_PATH=./data/config.json
 ```
 
 You can also set environment variables directly:
@@ -57,30 +59,14 @@ FLASK_HOST=127.0.0.1 FLASK_PORT=8000 python app.py
 
 ## API Endpoints
 
-- `GET /` - Basic hello world response
-- `GET /api/hello` - API hello endpoint
-- `GET /health` - Health check endpoint
+## Configs
 
-## Example Usage
+`./data/config.json`
 
-```bash
-# Test the hello world endpoint
-curl http://localhost:5000/
 
-# Test the API hello endpoint
-curl http://localhost:5000/api/hello
-
-# Test the health check
-curl http://localhost:5000/health
 ```
-
-## Response Format
-
-All endpoints return JSON responses with the following structure:
-```json
 {
-  "message": "Hello, World!",
-  "status": "success"
+  "dee_token": "",
+  "dee_user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
 }
 ```
-# pysv

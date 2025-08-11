@@ -2,7 +2,9 @@ from dataclasses import dataclass
 import os
 import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
+import requests
+from config import get_config
+from deeClient import DeeClient
 from genClients import gen_video
 from video_editor import cut_video, merge_videos
 
@@ -68,7 +70,7 @@ class VideoTask:
         return PROMPT_TEMPLATE.replace("<business_name>", self.options.business_name)
 
     def generate_videos(self):
-        with ThreadPoolExecutor(max_workers=2) as executor:
+        with ThreadPoolExecutor(max_workers=1) as executor:
             future_to_index = {
                 executor.submit(self.generate_video, index): index 
                 for index in range(self.get_image_count())
@@ -86,7 +88,24 @@ class VideoTask:
         prompt = self.generate_prompt()
         image_path = self.get_image_path(index)
         output_video_path = self.get_generated_video_path(index)
-        gen_video(image_path, prompt, output_video_path)
+        
+        client = DeeClient(
+            token=get_config("dee_token"), 
+            user_agent=get_config("dee_user_agent"))
+        video_url = client.dee_video(prompt, image_path)
+
+        if not video_url:
+            raise Exception("no video url")
+
+        # download video_url into output_video_path
+        response = requests.get(video_url, stream=True)
+        if response.status_code == 200:
+            with open(output_video_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+        else:
+            raise Exception(f"Failed to download video from {video_url}, status code: {response.status_code}")
 
     def cut_videos(self):
         for index in range(self.get_image_count()):

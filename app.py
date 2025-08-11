@@ -1,8 +1,8 @@
 from dotenv import load_dotenv
-
 load_dotenv()
 
-from flask import Flask, jsonify, request
+from config import get_config_all, load_config, save_config, set_config
+from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 import os
 from werkzeug.exceptions import HTTPException
@@ -19,7 +19,6 @@ if not FLASK_PORT:
 app = Flask(__name__)
 CORS(app)
 
-
 @app.route("/api/create", methods=["POST"])
 def create():
     try:
@@ -35,7 +34,8 @@ def create():
         video_options = VideoOptions(**json.loads(request.form.get("options")))
         video_task = VideoTask.create_new(video_options)
         for file in files:
-            file_path = video_task.add_image(file.filename)
+            file_ext = os.path.splitext(file.filename)[1]
+            file_path = video_task.add_image(file_ext)
             file.save(file_path)
 
         video_task.run()
@@ -45,6 +45,21 @@ def create():
         print(f"error: {e}")
         return jsonify({"message": "error", "status": "error", "error": str(e)}), 500
 
+@app.route("/api/config", methods=["GET"])
+def get_config():
+    return jsonify(get_config_all())
+
+@app.route("/api/config/reload", methods=["GET"])
+def get_reload_config():
+    load_config()
+    return jsonify(get_config_all())
+
+@app.route("/api/config", methods=["POST"])
+def post_set_config():
+    set_config(request.form["key"], request.form["value"])
+    save_config()
+    return Response(status=204)
 
 if __name__ == "__main__":
+    load_config()
     app.run(debug=True, host=FLASK_HOST, port=FLASK_PORT)
