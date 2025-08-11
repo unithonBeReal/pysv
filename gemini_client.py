@@ -20,7 +20,7 @@ class GeminiClient:
         # 2. google-genai 라이브러리에 API 키를 설정합니다.
         self.model = genai.Client(api_key=api_key)
 
-    def generate_script(self, prompt: str = "이 집은 진짜.... 와 같이 초반에는 후킹 할 수 있는 멘트로 구성하고 음식점 홍보하는 릴스 대본 100글자로 딱 한글만 줘 상황 설명하는 괄호는 빼줘") -> str:
+    def generate_script(self, prompt: str = "이 집은 진짜.... 와 같이 초반에는 후킹 할 수 있는 멘트로 구성하고 음식점 홍보하는 릴스 대본 100글자로 딱 한글만 줘 상황 설명하는 괄호는 빼줘. 한 줄에 한 문장씩 쓸 수 있도록 자연스럽게 만들어주고, 한 줄은 최대 20글자 정도로") -> str:
         """
         주어진 프롬프트를 기반으로 릴스 대본을 생성합니다.
 
