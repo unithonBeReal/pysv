@@ -74,6 +74,16 @@ def get_result(task_id):
         logging.exception("/api/tasks/<task_id>/result")
         return jsonify({"status": "error", "error": str(e)}), 500
 
+@app.route("/api/tasks/<task_id>/thumbnail", methods=["GET"])
+def get_thumbnail(task_id):
+    try:
+        video_task = VideoTask.resume_from(task_id)
+        thumbnail = video_task.get_thumbnail_image_path()
+        return send_file(thumbnail)
+    except Exception as e:
+        logging.exception("/api/tasks/<task_id>/thumbnail")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
 @app.route("/api/config", methods=["GET"])
 def get_config():
     return jsonify(get_config_all())

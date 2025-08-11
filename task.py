@@ -5,6 +5,8 @@ import json
 import os
 import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
+
 import requests
 from config import get_config
 from deeClient import DeeClient
@@ -81,6 +83,7 @@ class VideoTask:
         self.script_list = []
         self.completed_work_list = []
         self.options = VideoCreationOptions("", "", "", 5)
+        self.last_access = datetime.min
 
     def serialize(self):
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
@@ -91,7 +94,8 @@ class VideoTask:
             'ext_list': self.ext_list,
             'script_list': self.script_list,
             'completed_work_list': self.completed_work_list,
-            'options': asdict(self.options)
+            'options': asdict(self.options),
+            'last_access': self.last_access.isoformat()
         }
 
     def load_info(self):
@@ -103,6 +107,11 @@ class VideoTask:
             self.script_list = obj["script_list"]
             self.completed_work_list = obj["completed_work_list"]
             self.options = VideoCreationOptions(**obj["options"])
+            last_access_str = obj.get("last_access")
+            if last_access_str:
+                self.last_access = datetime.fromisoformat(last_access_str)
+            else:
+                self.last_access = datetime.min
 
     def save_info(self):
         path = self.get_info_file_path()
@@ -145,6 +154,11 @@ class VideoTask:
 
     def get_image_count(self):
         return len(self.ext_list)
+
+    def get_thumbnail_image_path(self):
+        if self.get_image_count() == 0:
+            raise Exception("No image")
+        return self.get_image_path(0)
 
     def add_image(self, ext: str) -> str:
         path = os.path.join(self.get_work_dir(), "input", str(self.get_image_count()) + ext)
