@@ -1,8 +1,7 @@
-import logging
-
 from dotenv import load_dotenv
 load_dotenv()
 
+import logging
 from config import get_config_all, load_config, save_config, set_config
 from flask import Flask, Response, jsonify, request, send_file
 from flask_cors import CORS
@@ -20,7 +19,6 @@ if not FLASK_PORT:
 
 app = Flask(__name__)
 CORS(app)
-
 
 @app.route("/api/tasks", methods=["POST"])
 def create():
@@ -48,11 +46,21 @@ def create():
         logging.exception("/api/create")
         return jsonify({"status": "error", "error": str(e)}), 500
 
+@app.route("/api/tasks/<task_id>", methods=["GET"])
+def get_task(task_id):
+    try:
+        video_task = VideoTask.resume_from(task_id)
+        serialized_task = video_task.serialize()
+        return Response(serialized_task, mimetype="application/json")
+
+    except Exception as e:
+        logging.exception("/api/tasks/<task_id>")
+        return jsonify({"status": "error", "error": str(e)}), 500
 
 @app.route("/api/tasks/<task_id>/result", methods=["GET"])
 def get_result(task_id):
     try:
-        video_task = VideoTask.resume_from(task_id, {})
+        video_task = VideoTask.resume_from(task_id)
         video_path = video_task.get_merged_video_path()
         return send_file(video_path)        
     except Exception as e:

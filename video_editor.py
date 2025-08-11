@@ -162,6 +162,7 @@ class VideoEditor:
 
 def synthesize_speech(text: str, duration_sec: float):
     #return [(text, duration)] # 이거는 문장 단위로 자르기
+    duration_sec -= AUDIO_PRE_CUT_SEC
     sec_per_ch = duration_sec / len(text)
 
     # 2. 공백 기준으로 문장을 나누어 단어를 추출
@@ -227,7 +228,7 @@ if __name__ == '__main__':
         )
 
         # 각 음성 파일의 duration 구하기
-        duration = MP3(audio_file).info.length - AUDIO_PRE_CUT_SEC
+        duration = MP3(audio_file).info.length
         print(f"{i + 1}번째 음성 파일 길이: {duration:.2f}초")
 
         # 현재 프롬프트의 타임스탬프 계산 (이전 시간을 더해서)
@@ -254,7 +255,7 @@ if __name__ == '__main__':
     if len(cut_prompts) > 1:
         import os
         audio_files = [os.path.abspath(f"{i+1}.mp3") for i in range(len(cut_prompts))]
-        merge_videos(audio_files, "final_audio.mp3")
+        ffmpeg_merge_videos(audio_files, "final_audio.mp3")
         final_audio_file = "final_audio.mp3"
     else:
         final_audio_file = "1.mp3"

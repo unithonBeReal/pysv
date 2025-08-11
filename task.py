@@ -8,7 +8,7 @@ import requests
 from config import get_config
 from deeClient import DeeClient
 from gemini_client import GeminiClient
-from video_editor import cut_video, VideoEditor, ffmpeg_merge_videos
+from video_editor import cut_video, VideoEditor, ffmpeg_merge_videos, synthesize_speech, ffmpeg_merge_audios
 from google_tts import GoogleTTS
 from mutagen.mp3 import MP3
 
@@ -55,9 +55,7 @@ class VideoTask:
         self.completed_work_list = []
         self.options = VideoCreationOptions("", 5)
 
-    def save_info(self):
-        path = self.get_info_file_path()
-
+    def serialize(self):
         info_data = {
             'task_id': self.task_id,
             'ext_list': self.ext_list,
@@ -65,9 +63,12 @@ class VideoTask:
             'completed_work_list': self.completed_work_list,
             'options': asdict(self.options)
         }
+        return json.dumps(info_data, ensure_ascii=False, indent=2)
 
+    def save_info(self):
+        path = self.get_info_file_path()
         with open(path, 'w', encoding='utf-8') as f:
-            json.dump(info_data, f, ensure_ascii=False, indent=2)
+            f.write(self.serialize())
 
     def get_work_dir(self):
         return os.path.join(DATA_PATH, self.task_id)
@@ -199,7 +200,7 @@ class VideoTask:
                 adjusted_timestamps.append((word, adjusted_end_time))
 
             all_timestamps.extend(adjusted_timestamps)
-            current_time += tts_duratiion
+            current_time += tts_duration
 
         tts_files = [self.get_tts_path(index) for index in range(len(self.script_list))]
         ffmpeg_merge_audios(tts_files, self.get_merged_tts_path())
