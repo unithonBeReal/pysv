@@ -203,3 +203,7 @@ __marimo__/
 .streamlit/secrets.toml
 
 data
+
+# Google Cloud service key
+google-service-key.json
+*.mp3

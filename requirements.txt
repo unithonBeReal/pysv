@@ -4,3 +4,4 @@ flask
 flask-cors
 python-dotenv
 ffmpeg-python
+google-cloud-texttospeech
