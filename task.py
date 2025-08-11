@@ -1,15 +1,24 @@
-from dataclasses import dataclass
+import logging
+from dataclasses import dataclass, asdict
+import json
 import os
 import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 from config import get_config
 from deeClient import DeeClient
-
-from genClients import gen_video
-from video_editor import cut_video, merge_videos, VideoEditor
+from gemini_client import GeminiClient
+from video_editor import cut_video, VideoEditor, ffmpeg_merge_videos
 from google_tts import GoogleTTS
+from mutagen.mp3 import MP3
 
+WORK_GENERATE_VIDEO = "generate_video"
+WORK_CUT_VIDEO = "cut_video"
+WORK_MERGE_VIDEO = "merge_video"
+WORK_GENERATE_SCRIPT = "generate_script"
+WORK_GENERATE_TTS = "generate_tts"
+WORK_EDIT_VIDEO = "edit_video"
+WORK_FINISH = "finish"
 
 DATA_PATH = os.environ.get("DATA_PATH", "")
 if not DATA_PATH:
@@ -18,61 +27,95 @@ if not DATA_PATH:
 PROMPT_TEMPLATE = """
 zoom in to the image and <business_name>
 """
-    
+
 @dataclass
-class VideoOptions:
+class VideoCreationOptions:
     business_name: str
     cut_length_sec: int
 
 class VideoTask:
-    def create_new(options: VideoOptions):
+    @staticmethod
+    def create_new(options: VideoCreationOptions):
         task_id = str(random.randint(10000, 99999))
-        task = VideoTask(task_id, options)
-        task.initialize_dir()
-        return task
-    
-    def resume_from(task_id: str, options: VideoOptions):
-        task = VideoTask(task_id, options)
+        task = VideoTask(task_id)
+        task.options = options
         task.initialize_dir()
         return task
 
-    def __init__(self, task_id: str, options: VideoOptions):
+    @staticmethod
+    def resume_from(task_id: str):
+        task = VideoTask(task_id)
+        task.initialize_dir()
+        return task
+
+    def __init__(self, task_id: str):
         self.task_id = task_id
-        self.options = options
         self.ext_list = []
+        self.script_list = []
+        self.completed_work_list = []
+        self.options = VideoCreationOptions("", 5)
+
+    def save_info(self):
+        path = self.get_info_file_path()
+
+        info_data = {
+            'task_id': self.task_id,
+            'ext_list': self.ext_list,
+            'script_list': self.script_list,
+            'completed_work_list': self.completed_work_list,
+            'options': asdict(self.options)
+        }
+
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(info_data, f, ensure_ascii=False, indent=2)
+
+    def get_work_dir(self):
+        return os.path.join(DATA_PATH, self.task_id)
 
     def initialize_dir(self):
         os.makedirs(self.get_work_dir(), exist_ok=True)
         os.makedirs(os.path.join(self.get_work_dir(), "input"), exist_ok=True)
         os.makedirs(os.path.join(self.get_work_dir(), "video"), exist_ok=True)
         os.makedirs(os.path.join(self.get_work_dir(), "cut"), exist_ok=True)
+        os.makedirs(os.path.join(self.get_work_dir(), "tts"), exist_ok=True)
 
+    def get_info_file_path(self):
+        return os.path.abspath(os.path.join(self.get_work_dir(), "info.json"))
 
-    def get_work_dir(self):
-        return os.path.join(DATA_PATH, self.task_id)
+    def get_image_path(self, index: int):
+        return os.path.abspath(os.path.join(self.get_work_dir(), "input", str(index) + self.ext_list[index]))
+
+    def get_generated_video_path(self, index: int):
+        return os.path.abspath(os.path.join(self.get_work_dir(), "video", str(index) + ".mp4"))
+
+    def get_cutted_video_path(self, index: int):
+        return os.path.abspath(os.path.join(self.get_work_dir(), "cut", str(index) + ".mp4"))
+
+    def get_merged_video_path(self):
+        return os.path.abspath(os.path.join(self.get_work_dir(), "merged.mp4"))
+
+    def get_tts_path(self, index: int):
+        return os.path.abspath(os.path.join(self.get_work_dir(), "tts", str(index) + ".mp3"))
+
+    def get_merged_tts_path(self):
+        return os.path.abspath(os.path.join(self.get_work_dir(), "merged.mp3"))
+
+    def get_final_video_path(self):
+        return os.path.abspath(os.path.join(self.get_work_dir(), "final.mp4"))
 
     def get_image_count(self):
         return len(self.ext_list)
-
-    def get_image_path(self, index: int):
-        return os.path.join(self.get_work_dir(), "input", str(index) + self.ext_list[index])
-
-    def get_generated_video_path(self, index: int):
-        return os.path.join(self.get_work_dir(), "video", str(index) + ".mp4")
-
-    def get_cutted_video_path(self, index: int):
-        return os.path.join(self.get_work_dir(), "cut", str(index) + ".mp4")
-
-    def get_merged_video_path(self):
-        return os.path.join(self.get_work_dir(), "merged.mp4")
-
-    def get_final_video_path(self):
-        return os.path.join(self.get_work_dir(), "final_video.mp4")
 
     def add_image(self, ext: str) -> str:
         path = os.path.join(self.get_work_dir(), "input", str(self.get_image_count()) + ext)
         self.ext_list.append(ext)
         return path
+
+    def has_work_done(self, work_name: str):
+        return work_name in self.completed_work_list
+
+    def add_work_done(self, work_name: str):
+        self.completed_work_list.append(work_name)
 
     def generate_prompt(self):
         return PROMPT_TEMPLATE.replace("<business_name>", self.options.business_name)
@@ -111,6 +154,9 @@ class VideoTask:
             raise Exception(f"Failed to download video from {video_url}, status code: {response.status_code}")
 
     def cut_videos(self):
+        if self.options.cut_length_sec <= 0:
+            return
+
         for index in range(self.get_image_count()):
             cut_video(
                 self.get_generated_video_path(index), 
@@ -119,24 +165,71 @@ class VideoTask:
 
     def merge_videos(self):
         input_path_list = [self.get_cutted_video_path(index) for index in range(self.get_image_count())]
-        merge_videos(input_path_list, self.get_merged_video_path())
+        ffmpeg_merge_videos(input_path_list, self.get_merged_video_path())
 
-    def add_subtitle(self, text: str):
-        # 1. TTS로 음성 및 타임스탬프 생성
+    def generate_script(self):
+        gemini_client = GeminiClient()
+        script = gemini_client.generate_script()
+        for line in script.split('\n'):
+            if line.strip():
+                self.script_list.append(line.strip())
+        
+    def generate_tts(self):
         tts = GoogleTTS()
-        audio_path = os.path.join(self.get_work_dir(), "audio.mp3")
-        success, timestamps = tts.synthesize_speech(text, audio_path)
-        if not success:
-            raise Exception("Failed to synthesize speech")
+        for index, prompt in enumerate(self.script_list):
+            tts_path = self.get_tts_path(index)
+            tts.synthesize_speech(
+                prompt,
+                tts_path,
+                language_code="en-US",
+                voice_name="en-US-Chirp3-HD-Achernar"
+            )
 
-        # 2. VideoEditor로 자막 합성
-        editor = VideoEditor(self.get_merged_video_path(), audio_path)
-        editor.add_subtitles_from_timestamps(timestamps)
+    def edit_video(self):
+        all_timestamps = []
+        current_time = 0.0
+        for index, prompt in enumerate(self.script_list):
+            tts_path = self.get_tts_path(index)
+            tts_duration = MP3(tts_path).info.length
+            timestamps = synthesize_speech(prompt, tts_duration)
+
+            adjusted_timestamps = []
+            for word, end_time in timestamps:
+                adjusted_end_time = current_time + end_time
+                adjusted_timestamps.append((word, adjusted_end_time))
+
+            all_timestamps.extend(adjusted_timestamps)
+            current_time += tts_duratiion
+
+        tts_files = [self.get_tts_path(index) for index in range(len(self.script_list))]
+        ffmpeg_merge_audios(tts_files, self.get_merged_tts_path())
+
+        editor = VideoEditor(
+            self.get_merged_video_path(), 
+            self.get_merged_tts_path())
+
+        editor.add_subtitles_from_timestamps(all_timestamps)
         editor.composite_video(self.get_final_video_path())
 
-        return self.get_final_video_path()
+    def run_work(self, work_name: str, func):
+        try:
+            if not self.has_work_done(work_name):
+                func()
+                self.add_work_done(work_name)
+        except Exception as e:
+            raise e
+        finally:
+            self.save_info()
 
     def run(self):
-        self.generate_videos()
-        self.cut_videos()
-        self.merge_videos()
+        try:
+            self.run_work(WORK_GENERATE_VIDEO, lambda: self.generate_videos())
+            self.run_work(WORK_CUT_VIDEO, lambda: self.cut_videos())
+            self.run_work(WORK_MERGE_VIDEO, lambda: self.merge_videos())
+            self.run_work(WORK_GENERATE_SCRIPT, lambda: self.generate_script())
+            self.run_work(WORK_GENERATE_TTS, lambda: self.generate_tts())
+            self.run_work(WORK_EDIT_VIDEO, lambda: self.edit_video())
+            self.run_work(WORK_FINISH, lambda: None)
+        except Exception as e:
+            logging.error(f"Error in run: {e}")
+            raise e

@@ -9,7 +9,7 @@ from flask_cors import CORS
 import os
 from werkzeug.exceptions import HTTPException
 import json
-from task import VideoOptions, VideoTask
+from task import VideoCreationOptions, VideoTask
 
 FLASK_HOST = os.environ.get("FLASK_HOST", "")
 if not FLASK_HOST:
@@ -34,7 +34,7 @@ def create():
         if not files or files[0].filename == "":
             raise HTTPException(status_code=400, detail="No images selected")
 
-        video_options = VideoOptions(**json.loads(request.form.get("options")))
+        video_options = VideoCreationOptions(**json.loads(request.form.get("options")))
         video_task = VideoTask.create_new(video_options)
         for file in files:
             file_ext = os.path.splitext(file.filename)[1]

@@ -15,8 +15,11 @@ def cut_video(input_path: str, output_path: str, video_length_sec: int):
     stream = ffmpeg.output(stream, output_path, t=video_length_sec)
     ffmpeg.run(stream)
 
+def ffmpeg_merge_videos(input_path_list: list[str], output_path: str):
+    pass
+
 # ffmpeg -f concat -safe 0 -i filelist.txt -c copy output_path -y
-def merge_audios(input_path_list: list[str], output_path: str):
+def ffmpeg_merge_audios(input_path_list: list[str], output_path: str):
     import subprocess
     import os
     
@@ -158,7 +161,7 @@ class VideoEditor:
         print(f"최종 영상이 '{output_path}'에 저장되었습니다.")
 
 def synthesize_speech(text: str, duration_sec: float):
-    #return [(text, duration)]
+    #return [(text, duration)] # 이거는 문장 단위로 자르기
     sec_per_ch = duration_sec / len(text)
 
     # 2. 공백 기준으로 문장을 나누어 단어를 추출
@@ -214,7 +217,7 @@ if __name__ == '__main__':
         audio_file = f"{i+1}.mp3"
         
         # TTS 생성
-        success = tts.synthesize_speech(
+        tts.synthesize_speech(
             cut_prompt,
             audio_file,
             #language_code="ko-KR",
@@ -222,27 +225,24 @@ if __name__ == '__main__':
             language_code="en-US",
             voice_name="en-US-Chirp3-HD-Achernar"
         )
-        
-        if success:
-            # 각 음성 파일의 duration 구하기
-            duration = MP3(audio_file).info.length - AUDIO_PRE_CUT_SEC
-            print(f"{i+1}번째 음성 파일 길이: {duration:.2f}초")
-            
-            # 현재 프롬프트의 타임스탬프 계산 (이전 시간을 더해서)
-            timestamps = synthesize_speech(cut_prompt, duration)
-            
-            # 타임스탬프에 이전 시간을 더해서 조정
-            adjusted_timestamps = []
-            for word, end_time in timestamps:
-                adjusted_end_time = current_time + end_time
-                adjusted_timestamps.append((word, adjusted_end_time))
-            
-            all_timestamps.extend(adjusted_timestamps)
-            
-            # 다음 프롬프트의 시작 시간을 현재 시간 + 현재 duration으로 설정
-            current_time += duration
-        else:
-            print(f"TTS 생성 실패: {cut_prompts[i]}")
+
+        # 각 음성 파일의 duration 구하기
+        duration = MP3(audio_file).info.length - AUDIO_PRE_CUT_SEC
+        print(f"{i + 1}번째 음성 파일 길이: {duration:.2f}초")
+
+        # 현재 프롬프트의 타임스탬프 계산 (이전 시간을 더해서)
+        timestamps = synthesize_speech(cut_prompt, duration)
+
+        # 타임스탬프에 이전 시간을 더해서 조정
+        adjusted_timestamps = []
+        for word, end_time in timestamps:
+            adjusted_end_time = current_time + end_time
+            adjusted_timestamps.append((word, adjusted_end_time))
+
+        all_timestamps.extend(adjusted_timestamps)
+
+        # 다음 프롬프트의 시작 시간을 현재 시간 + 현재 duration으로 설정
+        current_time += duration
     
     # 모든 타임스탬프 출력
     print(f"\n전체 타임스탬프:")

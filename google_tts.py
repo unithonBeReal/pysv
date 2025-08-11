@@ -37,20 +37,12 @@ class GoogleTTS:
             audio_encoding=texttospeech.AudioEncoding.MP3,
             speaking_rate=speaking_rate
         )
+        response = self.client.synthesize_speech(
+            input=synthesis_input, voice=voice, audio_config=audio_config
+        )
 
-        try:
-            response = self.client.synthesize_speech(
-                input=synthesis_input, voice=voice, audio_config=audio_config
-            )
-
-            with open(output_filename, "wb") as out:
-                out.write(response.audio_content)
-                print(f'Audio content written to file "{output_filename}"')
-
-            return True
-        except Exception as e:
-            print(f"Error during speech synthesis: {e}")
-            return False
+        with open(output_filename, "wb") as out:
+            out.write(response.audio_content)
 
 
 # 예제 사용법
