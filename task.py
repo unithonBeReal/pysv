@@ -5,8 +5,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 from config import get_config
 from deeClient import DeeClient
+
 from genClients import gen_video
-from video_editor import cut_video, merge_videos
+from video_editor import cut_video, merge_videos, VideoEditor
+from google_tts import GoogleTTS
+
 
 DATA_PATH = os.environ.get("DATA_PATH", "")
 if not DATA_PATH:
@@ -42,6 +45,8 @@ class VideoTask:
         os.makedirs(self.get_work_dir(), exist_ok=True)
         os.makedirs(os.path.join(self.get_work_dir(), "input"), exist_ok=True)
         os.makedirs(os.path.join(self.get_work_dir(), "video"), exist_ok=True)
+        os.makedirs(os.path.join(self.get_work_dir(), "cut"), exist_ok=True)
+
 
     def get_work_dir(self):
         return os.path.join(DATA_PATH, self.task_id)
@@ -60,6 +65,9 @@ class VideoTask:
 
     def get_merged_video_path(self):
         return os.path.join(self.get_work_dir(), "merged.mp4")
+
+    def get_final_video_path(self):
+        return os.path.join(self.get_work_dir(), "final_video.mp4")
 
     def add_image(self, ext: str) -> str:
         path = os.path.join(self.get_work_dir(), "input", str(self.get_image_count()) + ext)
@@ -112,6 +120,21 @@ class VideoTask:
     def merge_videos(self):
         input_path_list = [self.get_cutted_video_path(index) for index in range(self.get_image_count())]
         merge_videos(input_path_list, self.get_merged_video_path())
+
+    def add_subtitle(self, text: str):
+        # 1. TTS로 음성 및 타임스탬프 생성
+        tts = GoogleTTS()
+        audio_path = os.path.join(self.get_work_dir(), "audio.mp3")
+        success, timestamps = tts.synthesize_speech(text, audio_path)
+        if not success:
+            raise Exception("Failed to synthesize speech")
+
+        # 2. VideoEditor로 자막 합성
+        editor = VideoEditor(self.get_merged_video_path(), audio_path)
+        editor.add_subtitles_from_timestamps(timestamps)
+        editor.composite_video(self.get_final_video_path())
+
+        return self.get_final_video_path()
 
     def run(self):
         self.generate_videos()
