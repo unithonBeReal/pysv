@@ -16,11 +16,15 @@ def get_temp_file_path(ext: str):
 
 # ffmpeg -i input_path -t video_length_sec -c copy output_path -y
 def cut_video(input_path: str, output_path: str, video_length_sec: int):
+    if os.path.exists(output_path):
+        os.remove(output_path)
     stream = ffmpeg.input(input_path)
     stream = ffmpeg.output(stream, output_path, t=video_length_sec)
     ffmpeg.run(stream)
 
 def ffmpeg_merge_videos(input_path_list: list[str], output_path: str):
+    if os.path.exists(output_path):
+        os.remove(output_path)
     filelist_path = get_temp_file_path("txt")
     with open(filelist_path, "w", encoding='utf-8') as temp_file:
         for input_path in input_path_list:
@@ -33,6 +37,8 @@ def ffmpeg_merge_videos(input_path_list: list[str], output_path: str):
 
 # ffmpeg -f concat -safe 0 -i filelist.txt -c copy output_path -y
 def ffmpeg_merge_audios(input_path_list: list[str], output_path: str):
+    if os.path.exists(output_path):
+        os.remove(output_path)
     filelist_path = get_temp_file_path("txt")
     with open(filelist_path, 'w', encoding='utf-8') as temp_file:
         for input_path in input_path_list:
@@ -148,7 +154,6 @@ class VideoEditor:
         self.video_clip = CompositeVideoClip([self.video_clip] + subtitle_clips)
         self.video_clip = self.video_clip.with_audio(self.audio_clip)
         self.video_clip.write_videofile(output_path, codec="libx264", audio_codec="aac")
-        print(f"최종 영상이 '{output_path}'에 저장되었습니다.")
 
 def synthesize_speech(text: str, duration_sec: float):
     #return [(text, duration)] # 이거는 문장 단위로 자르기

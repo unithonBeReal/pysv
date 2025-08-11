@@ -5,12 +5,17 @@ config_file_path = os.getenv("CONFIG_FILE_PATH")
 if not config_file_path:
     raise ValueError("CONFIG_FILE_PATH environment variable must be set")
 
+is_config_loaded = False
 config = {}
 
 def get_config_all():
+    if not is_config_loaded:
+        load_config()
     return config
 
 def get_config(key: str):
+    if not is_config_loaded:
+        load_config()
     return config[key]
 
 def set_config(key: str, value: str):
@@ -18,11 +23,10 @@ def set_config(key: str, value: str):
 
 def load_config():
     global config
-    if os.path.exists(config_file_path):
-        with open(config_file_path, 'r', encoding="utf-8") as f:
-            config = json.load(f)
-    else:
-        print(f"Config file not found: {config_file_path}")
+    global is_config_loaded
+    with open(config_file_path, 'r', encoding="utf-8") as f:
+        config = json.load(f)
+    is_config_loaded = True
 
 def save_config():
     global config

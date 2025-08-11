@@ -1,4 +1,5 @@
 import logging
+import shutil
 from dataclasses import dataclass, asdict
 import json
 import os
@@ -46,6 +47,7 @@ class VideoTask:
     def resume_from(task_id: str):
         task = VideoTask(task_id)
         task.initialize_dir()
+        task.load_info()
         return task
 
     def __init__(self, task_id: str):
@@ -64,6 +66,16 @@ class VideoTask:
             'options': asdict(self.options)
         }
         return json.dumps(info_data, ensure_ascii=False, indent=2)
+
+    def load_info(self):
+        path = self.get_info_file_path()
+        with open(path, 'r', encoding='utf-8') as f:
+            obj = json.load(f)
+            self.task_id = obj["task_id"]
+            self.ext_list = obj["ext_list"]
+            self.script_list = obj["script_list"]
+            self.completed_work_list = obj["completed_work_list"]
+            self.options = VideoCreationOptions(**obj["options"])
 
     def save_info(self):
         path = self.get_info_file_path()
@@ -155,14 +167,16 @@ class VideoTask:
             raise Exception(f"Failed to download video from {video_url}, status code: {response.status_code}")
 
     def cut_videos(self):
-        if self.options.cut_length_sec <= 0:
-            return
-
         for index in range(self.get_image_count()):
-            cut_video(
-                self.get_generated_video_path(index), 
-                self.get_cutted_video_path(index), 
-                self.options.cut_length_sec)
+            if self.options.cut_length_sec <= 0:
+                shutil.copy2(
+                    self.get_generated_video_path(index),
+                    self.get_cutted_video_path(index))
+            else:
+                cut_video(
+                    self.get_generated_video_path(index),
+                    self.get_cutted_video_path(index),
+                    self.options.cut_length_sec)
 
     def merge_videos(self):
         input_path_list = [self.get_cutted_video_path(index) for index in range(self.get_image_count())]
