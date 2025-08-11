@@ -11,10 +11,6 @@ from task import VideoTask
 VIDEO_MODEL_NAME = "veo-2.0-generate-001"
 RETRY_COUNT = 3
 
-PROMPT_TEMPLATE = """
-zoom in to the image and <business_name>
-"""
-
 # Load API keys from environment variable
 api_keys_str = os.getenv('GENAI_API_KEY', '')
 api_keys = [key.strip() for key in api_keys_str.split(',') if key.strip()]
@@ -40,42 +36,20 @@ def rotate_genai_client():
         current_client_index = (current_client_index + 1) % len(genai_clients)
         return genai_clients[current_client_index]
 
-def generate_prompt(task: VideoTask):
-    return PROMPT_TEMPLATE.replace("<business_name>", task.options.business_name)
-
-def generate_video_list(task: VideoTask, index_list: list[int]):
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        # Submit all video generation tasks
-        future_to_index = {
-            executor.submit(generate_video, task, index): index 
-            for index in index_list
-        }
-        
-        # Wait for all tasks to complete
-        for future in as_completed(future_to_index):
-            index = future_to_index[future]
-            try:
-                future.result()  # This will raise any exception that occurred
-                print(f"Completed video generation for index: {index}")
-            except Exception as e:
-                print(f"Error generating video for index {index}: {e}")
-
-def generate_video(task: VideoTask, index: int):
+def gen_video(input_image_path: str, prompt: str, output_video_path: str):
     for i in range(RETRY_COUNT):
         try:
-            inner_generate_video(task, index)
-            break
+            inner_gen_video(input_image_path, prompt, output_video_path)
+            return
         except Exception as e:
-            last_error = e
             print(e)
             rotate_genai_client()
+            last_error = e
     raise last_error
 
-def inner_generate_video(task: VideoTask, index: int):
+def inner_gen_video(input_image_path: str, prompt: str, output_video_path: str):
     client = get_current_genai_client()
-    prompt = generate_prompt(task)
-    image_path = task.get_image_path(index)
-    image = Image.from_file(location=image_path)
+    image = Image.from_file(location=input_image_path)
     operation = client.models.generate_videos(
         model=VIDEO_MODEL_NAME,
         prompt=prompt,
@@ -83,12 +57,12 @@ def inner_generate_video(task: VideoTask, index: int):
         
     elapsed_time = 0
     while not operation.done:
-        print(f"generate_video: {task.work_dir} {index} elapsed time: {elapsed_time}s")
+        print(f"generate_video: {output_video_path} elapsed time: {elapsed_time}s")
         time.sleep(10)
         elapsed_time += 10
         operation = client.operations.get(operation)
 
     video = operation.response.generated_videos[0]
     client.files.download(file=video.video)
-    video.video.save(task.get_video_path(index))
-    print(f"saved video: {task.work_dir} {index}")
+    video.video.save(output_video_path)
+    print(f"saved video: {output_video_path}")

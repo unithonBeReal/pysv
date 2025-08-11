@@ -1,13 +1,12 @@
 from dotenv import load_dotenv
+
 load_dotenv()
 
-from video_editor import cut_videos_task, merge_videos_task
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import os
 from werkzeug.exceptions import HTTPException
 import json
-from genClients import generate_video_list
 from task import VideoOptions, VideoTask
 
 FLASK_HOST = os.environ.get("FLASK_HOST", "")
@@ -20,45 +19,28 @@ if not FLASK_PORT:
 app = Flask(__name__)
 CORS(app)
 
-def save_uploaded_images(task: VideoTask) -> list[int]:
-    if "images" not in request.files:
-        raise HTTPException(status_code=400, detail="No images provided")
-
-    files = request.files.getlist("images")
-    if not files or files[0].filename == "":
-        raise HTTPException(status_code=400, detail="No images selected")
-
-    saved_file_index_list = []
-
-    file_index = 1
-    for file in files:
-        file_path = task.get_image_path(file_index)
-        file.save(file_path)
-
-        saved_file_index_list.append(file_index)
-        file_index += 1
-
-    return saved_file_index_list
 
 @app.route("/api/create", methods=["POST"])
 def create():
-    if "options" not in request.form:
-        raise HTTPException(status_code=400, detail="No options provided")
-    video_options = VideoOptions(**json.loads(request.form.get("options")))
-
     try:
+        if "options" not in request.form:
+            raise HTTPException(status_code=400, detail="No options provided")
+        if "images" not in request.files:
+            raise HTTPException(status_code=400, detail="No images provided")
+
+        files = request.files.getlist("images")
+        if not files or files[0].filename == "":
+            raise HTTPException(status_code=400, detail="No images selected")
+
+        video_options = VideoOptions(**json.loads(request.form.get("options")))
         video_task = VideoTask.create_new(video_options)
-        print(f"work dir: {video_task.work_dir}")
-        print(f"options: {video_task.options}")
+        for file in files:
+            file_path = video_task.add_image(file.filename)
+            file.save(file_path)
 
-        saved_file_index_list = save_uploaded_images(video_task)
-        print(f"total saved files: {len(saved_file_index_list)}")
-
-        generate_video_list(video_task, saved_file_index_list)
-        cut_videos_task(video_task, saved_file_index_list)
-        merge_videos_task(video_task, saved_file_index_list)
-
+        video_task.run()
         return jsonify({"message": "success", "status": "success"})
+
     except Exception as e:
         print(f"error: {e}")
         return jsonify({"message": "error", "status": "error", "error": str(e)}), 500
