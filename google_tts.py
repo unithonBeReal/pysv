@@ -1,5 +1,6 @@
 import os
-from google.cloud import texttospeech
+from google.cloud import texttospeech_v1beta1 as texttospeech
+import re
 
 class GoogleTTS:
     def __init__(self, credentials_path="google-service-key.json"):
@@ -9,23 +10,27 @@ class GoogleTTS:
 
         :param credentials_path: Google Cloud 서비스 계정 키 파일 경로
         """
-        # TODO: "YOUR_SERVICE_ACCOUNT_KEY.json"을 실제 서비스 계정 키 파일 경로로 바꾸세요.
-        # 이 파일은 Google Cloud Console에서 다운로드할 수 있습니다.
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
         self.client = texttospeech.TextToSpeechClient()
 
-    def synthesize_speech(self, text, output_filename="output.mp3", language_code="en-US", voice_name="en-US-Chirp3-HD-Achernar", speaking_rate=1.0):
+    def synthesize_speech(self, text, output_filename="output.mp3", language_code="ko-KR", voice_name="ko-KR-WaveNet-A", speaking_rate=1.0):
         """
-        주어진 텍스트를 음성으로 변환하고 파일로 저장합니다.
+        주어진 텍스트를 음성으로 변환하고, 단어별 타임스탬프를 반환합니다.
 
         :param text: 음성으로 변환할 텍스트
-        :param output_filename: 저장할 오디오 파일 이름 (기본값: "output.mp3")
-        :param language_code: 사용할 언어 코드 (기본값: "ko-KR")
-        :param voice_name: 사용할 목소리 이름 (기본값: "ko-KR-Neural2-A")
-        :param speaking_rate: 말하기 속도 (0.25 ~ 4.0, 기본값: 1.0)
-        :return: 성공 시 True, 실패 시 False
+        :param output_filename: 저장할 오디오 파일 이름
+        :param language_code: 사용할 언어 코드
+        :param voice_name: 사용할 목소리 이름
+        :param speaking_rate: 말하기 속도
+        :return: (성공 여부, 단어별 타임스탬프 리스트)
         """
-        synthesis_input = texttospeech.SynthesisInput(text=text)
+        words = re.findall(r"[\w']+", text)
+        ssml_text = "<speak>"
+        for i, word in enumerate(words):
+            ssml_text += f'{word} <mark name="{i}"/>'
+        ssml_text += "</speak>"
+
+        synthesis_input = texttospeech.SynthesisInput(ssml=ssml_text)
 
         voice = texttospeech.VoiceSelectionParams(
             language_code=language_code,
@@ -38,25 +43,40 @@ class GoogleTTS:
         )
 
         try:
-            response = self.client.synthesize_speech(
-                input=synthesis_input, voice=voice, audio_config=audio_config
+            request = texttospeech.SynthesizeSpeechRequest(
+                input=synthesis_input,
+                voice=voice,
+                audio_config=audio_config,
+                enable_time_pointing=[texttospeech.SynthesizeSpeechRequest.TimepointType.SSML_MARK]
             )
+            response = self.client.synthesize_speech(request=request)
 
             with open(output_filename, "wb") as out:
                 out.write(response.audio_content)
                 print(f'Audio content written to file "{output_filename}"')
+
+            timepoints = []
+            for i, timepoint in enumerate(response.timepoints):
+                if i < len(words):
+                    timepoints.append((words[i], timepoint.time_seconds))
             
-            return True
+            return True, timepoints
         except Exception as e:
             print(f"Error during speech synthesis: {e}")
-            return False
+            return False, []
 
 # 예제 사용법
 if __name__ == '__main__':
-
     tts_client = GoogleTTS()
+ 
+    success, timestamps = tts_client.synthesize_speech(
+        "안녕하세요. 한국어 타임스탬프 기능 테스트입니다.",
+        "output.mp3",
+        language_code="ko-KR",
+        voice_name="ko-KR-WaveNet-A"
+    )
 
-    # 공백 제거 10글자에 2초 걸립니다!
-    tts_client.synthesize_speech("1배속 테스트는 몇 초 걸릴까요? 이것 좀 보세요", "output_english.mp3", language_code="en-US", voice_name="en-US-Chirp3-HD-Achernar")
-    tts_client.synthesize_speech("2배속 테스트는 여덞구", "output_english2.mp3", language_code="en-US", voice_name="en-US-Chirp3-HD-Achernar")
-    tts_client.synthesize_speech("새벽 3시까지 영업? 명동 한복판에 이런 숨겨진 아지트가 있었어? 초 복잡한 세상 완벽한 나만의 시간... 하이볼에 정성 가득 안주는 기본 혼술러 눈치 보일 틈 1도 없어", "output_english3.mp3", language_code="en-US", voice_name="en-US-Chirp3-HD-Achernar")
+    if success:
+        print("한국어 타임스탬프가 성공적으로 추출되었습니다:")
+        for word, time in timestamps:
+            print(f"- 단어: '{word}', 시간: {time:.2f}초")
