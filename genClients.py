@@ -1,11 +1,9 @@
 import time
-import genai
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from google.genai.types import Image
 from google import genai
-from task import VideoTask
 
 #VIDEO_MODEL_NAME = "veo-3.0-fast-generate-preview"
 VIDEO_MODEL_NAME = "veo-2.0-generate-001"

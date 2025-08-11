@@ -9,14 +9,21 @@ def read_token():
     return token
 
 def request_report(token: str):
-    r = requests.post("https://api.deevid.ai/event/report", headers={
-        "Accept": "application/json, text/plain, */*",
-        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-        "Referer": "https://deevid.ai/",
-        "user-agent": ""
-    })
+    r = requests.post("https://api.deevid.ai/event/report", 
+        headers={
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "Referer": "https://deevid.ai/",
+            "user-agent": USER_AGENT
+        },
+        json={
+            "event": "report",
+            "data": {
+                "report": "report"
+            }
+        })
 
 def request_image():
     pass
