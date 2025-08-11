@@ -45,6 +45,7 @@ def create():
             file_path = video_task.add_image(file_ext)
             file.save(file_path)
 
+        print(f"start {video_task.task_id}")
         video_task.run()
         return jsonify({"status": "success", "id": video_task.task_id})
 
@@ -67,7 +68,7 @@ def get_task(task_id):
 def get_result(task_id):
     try:
         video_task = VideoTask.resume_from(task_id)
-        video_path = video_task.get_merged_video_path()
+        video_path = video_task.get_final_video_path()
         return send_file(video_path)        
     except Exception as e:
         logging.exception("/api/tasks/<task_id>/result")

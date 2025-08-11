@@ -18,7 +18,7 @@ def create_new():
     video_task.run()
 
 def resume_from():
-    video_task = VideoTask.resume_from("970846")
+    video_task = VideoTask.resume_from("568591")
     print(video_task.task_id)
     video_task.run()
 

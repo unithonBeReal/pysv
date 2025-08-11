@@ -42,7 +42,7 @@ class DeeClient:
             print(f"Response Text: {r.text}")
             raise Exception("request_report: not ok")
 
-    def request_image(self, file_name: str, file_path: str, mime_type: str):
+    def request_image(self, file_name: str, file_path: str, mime_type: str, width: int, height: int):
         headers_payload = {
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
@@ -52,8 +52,8 @@ class DeeClient:
         }
 
         data_payload = {
-            "width": 1024,
-            "height": 1280,
+            "width": width,
+            "height": height,
         }
 
         with open(file_path, "rb") as f:
@@ -72,7 +72,11 @@ class DeeClient:
 
     def parse_image_response(self, res: str):
         resObj = json.loads(res)
-        return resObj["data"]["data"]["id"]
+        try:
+            return resObj["data"]["data"]["id"]
+        except:
+            print(f"Error response: {res}")
+            raise Exception(f"Failed to parse image response: {res}")
 
     def request_submit(self, prompt: str, imageId: int):
         headers_payload = {
@@ -109,9 +113,11 @@ class DeeClient:
 
     def parse_submit_response(self, res: str):
         resObj = json.loads(res)
-        if resObj.get("error") is not None:
-            raise Exception(f"API error: {resObj['error']}")
-        return resObj["data"]["data"]["id"]
+        try:
+            return resObj["data"]["data"]["id"]
+        except:
+            print(f"Error response: {res}")
+            raise Exception(f"Failed to parse submit response: {res}")
 
     def request_tasks(self):
         headers_payload = {
@@ -135,7 +141,11 @@ class DeeClient:
 
     def parse_tasks_response(self, res: str):
         resObj = json.loads(res)
-        return resObj["data"]["data"]["data"]
+        try:
+            return resObj["data"]["data"]["data"]
+        except:
+            print(f"Error response: {res}")
+            raise Exception(f"Failed to parse tasks response: {res}")
 
     def print_tasks(self, tasks):
         for task in tasks:
@@ -185,9 +195,10 @@ class DeeClient:
         time.sleep(1)
         filename = self.get_random_image_file_name(image_path)
         mimetype = self.get_mime_type(image_path)
-        imageId = self.request_image(filename, image_path, mimetype)
+        width, height = self.get_image_size(image_path)
+        image_id = self.request_image(filename, image_path, mimetype, width, height)
         time.sleep(1)
-        id = self.request_submit(prompt, imageId)
+        submit_id = self.request_submit(prompt, image_id)
 
         start_time = time.time()
         while True:
@@ -197,7 +208,7 @@ class DeeClient:
             time.sleep(6)
             tasks = self.request_tasks()
             for task in tasks:
-                if task["id"] == id and task["taskState"] == "SUCCESS":
+                if task["id"] == submit_id and task["taskState"] == "SUCCESS":
                     return task["videoUrl"]
 
 if __name__ == "__main__":
