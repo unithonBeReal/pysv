@@ -27,7 +27,7 @@ def ffmpeg_merge_videos(input_path_list: list[str], output_path: str):
             input_path = os.path.abspath(input_path)
             temp_file.write(f"file '{input_path}'\n")
 
-    stream = ffmpeg.input(filelist_path)
+    stream = ffmpeg.input(filelist_path, format='concat', safe=0)
     stream = ffmpeg.output(stream, output_path, c="copy")
     ffmpeg.run(stream)
 
@@ -40,7 +40,7 @@ def ffmpeg_merge_audios(input_path_list: list[str], output_path: str):
             temp_file.write(f"file '{input_path}'\n")
             temp_file.write(f"inpoint {AUDIO_PRE_CUT_SEC}\n")
     
-    stream = ffmpeg.input(filelist_path)
+    stream = ffmpeg.input(filelist_path, format='concat', safe=0)
     stream = ffmpeg.output(stream, output_path, c="copy")
     ffmpeg.run(stream)
 
