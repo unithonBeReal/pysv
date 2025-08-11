@@ -5,6 +5,12 @@ from google import genai
 # .env 파일에서 환경 변수를 로드합니다.
 load_dotenv()
 
+PROMPT = """
+이 집은 진짜.... 와 같이 초반에는 후킹 할 수 있는 멘트로 구성하고 음식점 홍보하는 릴스 대본 100글자로 딱 한글만 줘 상황 설명하는 괄호는 빼줘. 한 줄에 한 문장씩 쓸 수 있도록 자연스럽게 만들어주고, 한 줄은 최대 20글자 정도로
+가게 이름: <business_name>
+가게 설명: <description>
+가게 분위기: <mode>
+"""
 
 class GeminiClient:
 
@@ -20,21 +26,13 @@ class GeminiClient:
         # 2. google-genai 라이브러리에 API 키를 설정합니다.
         self.model = genai.Client(api_key=api_key)
 
-    def generate_script(self, prompt: str = "이 집은 진짜.... 와 같이 초반에는 후킹 할 수 있는 멘트로 구성하고 음식점 홍보하는 릴스 대본 100글자로 딱 한글만 줘 상황 설명하는 괄호는 빼줘. 한 줄에 한 문장씩 쓸 수 있도록 자연스럽게 만들어주고, 한 줄은 최대 20글자 정도로") -> str:
-        """
-        주어진 프롬프트를 기반으로 릴스 대본을 생성합니다.
-
-        :param prompt: 대본 생성을 위한 프롬프트
-        :return: 생성된 대본 텍스트
-        """
-        try:
-            # 4. generate_content 메서드로 API에 요청을 보냅니다.
-            response = self.model.models.generate_content(
-                model='gemini-2.5-flash', contents=[prompt])
-            return response.text
-        except Exception as e:
-            print(f"스크립트 생성 중 오류 발생: {e}")
-            return ""
+    def generate_script(self, business_name: str, description: str, mode: str) -> str:
+        prompt = PROMPT.replace("<business_name>", business_name)
+        prompt = prompt.replace("<description>", description)
+        prompt = prompt.replace("<mode>", mode)
+        response = self.model.models.generate_content(
+            model='gemini-2.5-flash', contents=[prompt])
+        return response.text
 
 
 if __name__ == '__main__':
@@ -45,8 +43,16 @@ if __name__ == '__main__':
     try:
         gemini_client = GeminiClient()
 
-        test_prompt = "이 집은 진짜.... 와 같이 초반에는 후킹 할 수 있는 멘트로 구성하고 음식점 홍보하는 릴스 대본 100글자로 딱 한글만 줘 상황 설명하는 괄호는 빼줘. 한 줄에 한 문장씩 쓸 수 있도록 자연스럽게 만들어주고, 한 줄은 최대 20글자 정도로"
-        script = gemini_client.generate_script(test_prompt)
+        # 예시 데이터
+        business_name = "매콤돈까스"
+        description = "새롭게 오픈한 돈까스 맛집, 특별한 매콤 소스가 일품입니다."
+        mode = "활기찬"
+
+        script = gemini_client.generate_script(
+            business_name=business_name,
+            description=description,
+            mode=mode
+        )
 
         if script:
             print("🤖 생성된 릴스 대본:")

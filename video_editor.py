@@ -158,7 +158,12 @@ class VideoEditor:
 def synthesize_speech(text: str, duration_sec: float):
     #return [(text, duration)] # 이거는 문장 단위로 자르기
     duration_sec -= AUDIO_PRE_CUT_SEC
-    sec_per_ch = duration_sec / len(text)
+    
+    # text에서 공백을 제외한 실제 글자 수 계산
+    text_len_without_spaces = len(text.replace(' ', ''))
+    if not text_len_without_spaces:
+        return []
+    sec_per_ch = duration_sec / text_len_without_spaces
 
     # 2. 공백 기준으로 문장을 나누어 단어를 추출
     words = text.split(' ')

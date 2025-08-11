@@ -9,9 +9,15 @@ import requests
 from config import get_config
 from deeClient import DeeClient
 from gemini_client import GeminiClient
-from video_editor import cut_video, VideoEditor, ffmpeg_merge_videos, synthesize_speech, ffmpeg_merge_audios
+from video_editor import cut_video, VideoEditor, ffmpeg_merge_videos, synthesize_speech, ffmpeg_merge_audios, \
+    AUDIO_PRE_CUT_SEC
 from google_tts import GoogleTTS
 from mutagen.mp3 import MP3
+
+VIDEO_PROMPT = """
+줌인, 탑뷰 카메라 무빙, 45도 각도 카메라 무빙, 궤도 샷 (Arc Shot / Orbit Shot): 음식의 측면에서 시작하여 45도 각도까지 부드럽게 원을 그리며 돈다, 1인칭 시점으로 먹는 것처럼 보여준다, 젓가락으로 음식 들기
+위 기법 중 네가 랜덤으로 2개 선택해서 화면 전화해줘
+"""
 
 WORK_GENERATE_VIDEO = "generate_video"
 WORK_CUT_VIDEO = "cut_video"
@@ -25,13 +31,11 @@ DATA_PATH = os.environ.get("DATA_PATH", "")
 if not DATA_PATH:
     raise ValueError("DATA_PATH is not set")
 
-PROMPT_TEMPLATE = """
-zoom in to the image and <business_name>
-"""
-
 @dataclass
 class VideoCreationOptions:
     business_name: str
+    description: str
+    mode: str
     cut_length_sec: int
 
 class VideoTask:
@@ -55,7 +59,7 @@ class VideoTask:
         self.ext_list = []
         self.script_list = []
         self.completed_work_list = []
-        self.options = VideoCreationOptions("", 5)
+        self.options = VideoCreationOptions("", "", "", 5)
 
     def serialize(self):
         info_data = {
@@ -130,9 +134,6 @@ class VideoTask:
     def add_work_done(self, work_name: str):
         self.completed_work_list.append(work_name)
 
-    def generate_prompt(self):
-        return PROMPT_TEMPLATE.replace("<business_name>", self.options.business_name)
-
     def generate_videos(self):
         with ThreadPoolExecutor(max_workers=1) as executor:
             future_to_index = {
@@ -144,14 +145,13 @@ class VideoTask:
                 future.result()
 
     def generate_video(self, index: int):
-        prompt = self.generate_prompt()
         image_path = self.get_image_path(index)
         output_video_path = self.get_generated_video_path(index)
         
         client = DeeClient(
             token=get_config("dee_token"), 
             user_agent=get_config("dee_user_agent"))
-        video_url = client.dee_video(prompt, image_path)
+        video_url = client.dee_video(VIDEO_PROMPT, image_path)
 
         if not video_url:
             raise Exception("no video url")
@@ -184,7 +184,8 @@ class VideoTask:
 
     def generate_script(self):
         gemini_client = GeminiClient()
-        script = gemini_client.generate_script()
+        script = gemini_client.generate_script(self.options.business_name, self.options.description, self.options.mode)
+        self.script_list = []
         for line in script.split('\n'):
             if line.strip():
                 self.script_list.append(line.strip())
@@ -214,7 +215,7 @@ class VideoTask:
                 adjusted_timestamps.append((word, adjusted_end_time))
 
             all_timestamps.extend(adjusted_timestamps)
-            current_time += tts_duration
+            current_time += (tts_duration - AUDIO_PRE_CUT_SEC)
 
         tts_files = [self.get_tts_path(index) for index in range(len(self.script_list))]
         ffmpeg_merge_audios(tts_files, self.get_merged_tts_path())

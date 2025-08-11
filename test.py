@@ -18,9 +18,10 @@ def create_new():
     video_task.run()
 
 def resume_from():
-    video_task = VideoTask.resume_from("694387")
+    video_task = VideoTask.resume_from("970846")
     print(video_task.task_id)
     video_task.run()
 
 if __name__ == "__main__":
+    #create_new()
     resume_from()
