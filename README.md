@@ -41,25 +41,7 @@ DATA_PATH=./data
 CONFIG_FILE_PATH=./data/config.json
 ```
 
-You can also set environment variables directly:
-
-```bash
-# Set custom host and port
-export FLASK_HOST=127.0.0.1
-export FLASK_PORT=8000
-python app.py
-
-# Or run with inline environment variables
-FLASK_HOST=127.0.0.1 FLASK_PORT=8000 python app.py
-```
-
-**Default values:**
-- `FLASK_HOST`: `0.0.0.0` (all interfaces)
-- `FLASK_PORT`: `5000`
-
-## API Endpoints
-
-## Configs
+### Configs
 
 `./data/config.json`
 
@@ -70,3 +52,14 @@ FLASK_HOST=127.0.0.1 FLASK_PORT=8000 python app.py
   "dee_user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
 }
 ```
+
+### Service Key
+
+`./google-service-key.json`
+
+## API
+
+- GET /api/tasks
+- POST /api/tasks
+- GET /api/tasks/<task_id>/result
+- GET /api/tasks/<task_id>/thumbnail
