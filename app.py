@@ -9,6 +9,7 @@ import os
 from werkzeug.exceptions import HTTPException
 import json
 from task import VideoCreationOptions, VideoTask
+from concurrent.futures import ThreadPoolExecutor
 
 FLASK_HOST = os.environ.get("FLASK_HOST", "")
 if not FLASK_HOST:
@@ -19,6 +20,11 @@ if not FLASK_PORT:
 
 app = Flask(__name__)
 CORS(app)
+
+@app.route("/api/tasks", methods=["GET"])
+def get_tasks():
+    tasks = VideoTask.load_all()
+    return jsonify([task.to_dict() for task in tasks])
 
 @app.route("/api/tasks", methods=["POST"])
 def create():

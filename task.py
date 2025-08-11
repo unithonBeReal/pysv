@@ -54,6 +54,23 @@ class VideoTask:
         task.load_info()
         return task
 
+    @staticmethod
+    def load_all():
+        tasks = []
+        if not os.path.exists(DATA_PATH):
+            return tasks
+
+        for task_id in os.listdir(DATA_PATH):
+            task_dir = os.path.join(DATA_PATH, task_id)
+            info_file = os.path.join(task_dir, 'info.json')
+            if os.path.isdir(task_dir) and os.path.exists(info_file):
+                try:
+                    task = VideoTask.resume_from(task_id)
+                    tasks.append(task)
+                except Exception as e:
+                    logging.error(f"Failed to load task {task_id}: {e}")
+        return tasks
+
     def __init__(self, task_id: str):
         self.task_id = task_id
         self.ext_list = []
@@ -62,14 +79,16 @@ class VideoTask:
         self.options = VideoCreationOptions("", "", "", 5)
 
     def serialize(self):
-        info_data = {
+        return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
+
+    def to_dict(self):
+        return {
             'task_id': self.task_id,
             'ext_list': self.ext_list,
             'script_list': self.script_list,
             'completed_work_list': self.completed_work_list,
             'options': asdict(self.options)
         }
-        return json.dumps(info_data, ensure_ascii=False, indent=2)
 
     def load_info(self):
         path = self.get_info_file_path()
