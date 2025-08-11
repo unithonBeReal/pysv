@@ -20,7 +20,7 @@ class GeminiClient:
         # 2. google-genai 라이브러리에 API 키를 설정합니다.
         self.model = genai.Client(api_key=api_key)
 
-    def generate_script(self, prompt: str) -> str:
+    def generate_script(self, prompt: str = "이 집은 진짜.... 와 같이 초반에는 후킹 할 수 있는 멘트로 구성하고 음식점 홍보하는 릴스 대본 100글자로 딱 한글만 줘 상황 설명하는 괄호는 빼줘") -> str:
         """
         주어진 프롬프트를 기반으로 릴스 대본을 생성합니다.
 
@@ -30,7 +30,7 @@ class GeminiClient:
         try:
             # 4. generate_content 메서드로 API에 요청을 보냅니다.
             response = self.model.models.generate_content(
-                model='gemini-2.0-flash-001', contents=[prompt])
+                model='gemini-2.5-flash', contents=[prompt])
             return response.text
         except Exception as e:
             print(f"스크립트 생성 중 오류 발생: {e}")
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     try:
         gemini_client = GeminiClient()
 
-        test_prompt = "피트니스 센터를 홍보하는 30초짜리 릴스 대본을 작성해줘. 활기찬 분위기로!"
+        test_prompt = "이 집은 진짜.... 와 같이 초반에는 후킹 할 수 있는 멘트로 구성하고 음식점 홍보하는 릴스 대본 100글자로 딱 한글만 줘 상황 설명하는 괄호는 빼줘"
         script = gemini_client.generate_script(test_prompt)
 
         if script:
