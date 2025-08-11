@@ -5,16 +5,6 @@ from google import genai
 # .env 파일에서 환경 변수를 로드합니다.
 load_dotenv()
 
-PROMPT = """
-음식점 홍보용 인스타그램 릴스 대본을 아래 조건에 맞춰 생성해 줘.
-
-[조건]
-- 첫 문장은 '이 집은 진짜...'처럼 호기심을 유발하는 문구로 시작
-- 전체 분량은 공백 포함 100자 내외로 구성
-- 각 문장은 20자 미만으로, 한 줄씩 줄바꿈으로 구분
-- 음식 맛, 가게 분위기, 방문 추천 내용을 포함
-- 최종 결과물은 한글 대본만, 괄호나 부가 설명 없이 출력
-"""
 
 class GeminiClient:
 
@@ -30,10 +20,21 @@ class GeminiClient:
         # 2. google-genai 라이브러리에 API 키를 설정합니다.
         self.model = genai.Client(api_key=api_key)
 
-    def generate_script(self) -> str:
-        response = self.model.models.generate_content(
-            model='gemini-2.5-flash', contents=[PROMPT])
-        return response.text
+    def generate_script(self, prompt: str = "이 집은 진짜.... 와 같이 초반에는 후킹 할 수 있는 멘트로 구성하고 음식점 홍보하는 릴스 대본 100글자로 딱 한글만 줘 상황 설명하는 괄호는 빼줘") -> str:
+        """
+        주어진 프롬프트를 기반으로 릴스 대본을 생성합니다.
+
+        :param prompt: 대본 생성을 위한 프롬프트
+        :return: 생성된 대본 텍스트
+        """
+        try:
+            # 4. generate_content 메서드로 API에 요청을 보냅니다.
+            response = self.model.models.generate_content(
+                model='gemini-2.5-flash', contents=[prompt])
+            return response.text
+        except Exception as e:
+            print(f"스크립트 생성 중 오류 발생: {e}")
+            return ""
 
 
 if __name__ == '__main__':
@@ -43,7 +44,9 @@ if __name__ == '__main__':
 
     try:
         gemini_client = GeminiClient()
-        script = gemini_client.generate_script()
+
+        test_prompt = "이 집은 진짜.... 와 같이 초반에는 후킹 할 수 있는 멘트로 구성하고 음식점 홍보하는 릴스 대본 100글자로 딱 한글만 줘 상황 설명하는 괄호는 빼줘. 한 줄에 한 문장씩 쓸 수 있도록 자연스럽게 만들어주고, 한 줄은 최대 20글자 정도로"
+        script = gemini_client.generate_script(test_prompt)
 
         if script:
             print("🤖 생성된 릴스 대본:")
