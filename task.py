@@ -36,7 +36,7 @@ class VideoCreationOptions:
 class VideoTask:
     @staticmethod
     def create_new(options: VideoCreationOptions):
-        task_id = str(random.randint(10000, 99999))
+        task_id = str(random.randint(100000, 999999))
         task = VideoTask(task_id)
         task.options = options
         task.initialize_dir()

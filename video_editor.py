@@ -1,4 +1,5 @@
 import os
+import random
 import tempfile
 import ffmpeg
 from mutagen.mp3 import MP3
@@ -9,6 +10,10 @@ from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
 
 AUDIO_PRE_CUT_SEC = 0.5
 
+def get_temp_file_path(ext: str):
+    id = random.randint(100000, 999999)
+    return os.path.join(tempfile.gettempdir(), f"temp_{str(id)}.{ext}")
+
 # ffmpeg -i input_path -t video_length_sec -c copy output_path -y
 def cut_video(input_path: str, output_path: str, video_length_sec: int):
     stream = ffmpeg.input(input_path)
@@ -16,43 +21,28 @@ def cut_video(input_path: str, output_path: str, video_length_sec: int):
     ffmpeg.run(stream)
 
 def ffmpeg_merge_videos(input_path_list: list[str], output_path: str):
-    pass
+    filelist_path = get_temp_file_path("txt")
+    with open(filelist_path, "w", encoding='utf-8') as temp_file:
+        for input_path in input_path_list:
+            input_path = os.path.abspath(input_path)
+            temp_file.write(f"file '{input_path}'\n")
+
+    stream = ffmpeg.input(filelist_path)
+    stream = ffmpeg.output(stream, output_path, c="copy")
+    ffmpeg.run(stream)
 
 # ffmpeg -f concat -safe 0 -i filelist.txt -c copy output_path -y
 def ffmpeg_merge_audios(input_path_list: list[str], output_path: str):
-    import subprocess
-    import os
-    
-    # filelist.txt 파일에 입력 파일 목록 작성
-    with open('filelist.txt', 'w', encoding='utf-8') as temp_file:
+    filelist_path = get_temp_file_path("txt")
+    with open(filelist_path, 'w', encoding='utf-8') as temp_file:
         for input_path in input_path_list:
+            input_path = os.path.abspath(input_path)
             temp_file.write(f"file '{input_path}'\n")
             temp_file.write(f"inpoint {AUDIO_PRE_CUT_SEC}\n")
     
-    # ffmpeg 명령어 실행
-    cmd = [
-        'ffmpeg',
-        '-f', 'concat',
-        '-safe', '0',
-        '-i', 'filelist.txt',
-        '-c', 'copy',
-        output_path,
-        '-y'  # 기존 파일 덮어쓰기
-    ]
-    
-    # subprocess로 ffmpeg 실행하고 완료될 때까지 대기
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    
-    # filelist.txt 파일 삭제
-    if os.path.exists('filelist.txt'):
-        os.unlink('filelist.txt')
-    
-    if result.returncode != 0:
-        print(f"FFmpeg 오류: {result.stderr}")
-        return False
-    else:
-        print(f"음성 파일이 성공적으로 합쳐져서 '{output_path}'에 저장되었습니다.")
-        return True
+    stream = ffmpeg.input(filelist_path)
+    stream = ffmpeg.output(stream, output_path, c="copy")
+    ffmpeg.run(stream)
 
 def cut_prompt_by_word_boundary(text: str, min_length: int = 6, max_length: int = 30) -> list[str]:
     """
@@ -182,9 +172,8 @@ def synthesize_speech(text: str, duration_sec: float):
 
 # 예제 사용법
 if __name__ == '__main__':
-    # import os
-    # audio_files = [os.path.abspath(f"{i + 1}.mp3") for i in range(10)]
-    # merge_videos(audio_files, "final_audio.mp3")
+    ffmpeg_merge_audios(["1.mp3", "2.mp3", "3.mp3"], "test.mp3")
+    exit()
 
     # 1. GoogleTTS를 사용하여 음성 파일과 타임스탬프를 생성합니다.
     from google_tts import GoogleTTS
