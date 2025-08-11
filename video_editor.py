@@ -7,6 +7,8 @@ from moviepy.audio.io.AudioFileClip import AudioFileClip
 from moviepy.video.VideoClip import TextClip
 from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
 
+AUDIO_PRE_CUT_SEC = 0.5
+
 # ffmpeg -i input_path -t video_length_sec -c copy output_path -y
 def cut_video(input_path: str, output_path: str, video_length_sec: int):
     stream = ffmpeg.input(input_path)
@@ -14,15 +16,42 @@ def cut_video(input_path: str, output_path: str, video_length_sec: int):
     ffmpeg.run(stream)
 
 # ffmpeg -f concat -safe 0 -i filelist.txt -c copy output_path -y
-def merge_videos(input_path_list: list[str], output_path: str):
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as temp_file:
+def merge_audios(input_path_list: list[str], output_path: str):
+    import subprocess
+    import os
+    
+    # filelist.txt 파일에 입력 파일 목록 작성
+    with open('filelist.txt', 'w', encoding='utf-8') as temp_file:
         for input_path in input_path_list:
             temp_file.write(f"file '{input_path}'\n")
-        stream = ffmpeg.input(temp_file.name)
-        stream = ffmpeg.output(stream, output_path)
-        ffmpeg.run(stream)
+            temp_file.write(f"inpoint {AUDIO_PRE_CUT_SEC}\n")
+    
+    # ffmpeg 명령어 실행
+    cmd = [
+        'ffmpeg',
+        '-f', 'concat',
+        '-safe', '0',
+        '-i', 'filelist.txt',
+        '-c', 'copy',
+        output_path,
+        '-y'  # 기존 파일 덮어쓰기
+    ]
+    
+    # subprocess로 ffmpeg 실행하고 완료될 때까지 대기
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    
+    # filelist.txt 파일 삭제
+    if os.path.exists('filelist.txt'):
+        os.unlink('filelist.txt')
+    
+    if result.returncode != 0:
+        print(f"FFmpeg 오류: {result.stderr}")
+        return False
+    else:
+        print(f"음성 파일이 성공적으로 합쳐져서 '{output_path}'에 저장되었습니다.")
+        return True
 
-def cut_prompt_by_word_boundary(text: str, min_length: int = 20, max_length: int = 30) -> list[str]:
+def cut_prompt_by_word_boundary(text: str, min_length: int = 6, max_length: int = 30) -> list[str]:
     """
     텍스트를 20-30글자 사이로 자르되, 공백으로만 잘라서 단어가 짤리지 않도록 합니다.
     끝까지 다 잘라서 문자열 배열을 반환합니다.
@@ -129,6 +158,7 @@ class VideoEditor:
         print(f"최종 영상이 '{output_path}'에 저장되었습니다.")
 
 def synthesize_speech(text: str, duration_sec: float):
+    #return [(text, duration)]
     sec_per_ch = duration_sec / len(text)
 
     # 2. 공백 기준으로 문장을 나누어 단어를 추출
@@ -149,17 +179,28 @@ def synthesize_speech(text: str, duration_sec: float):
 # 예제 사용법
 if __name__ == '__main__':
     # import os
-    # audio_files = [os.path.abspath(f"{i+1}.mp3") for i in range(3)]
+    # audio_files = [os.path.abspath(f"{i + 1}.mp3") for i in range(10)]
     # merge_videos(audio_files, "final_audio.mp3")
-    # final_audio_file = "final_audio.mp3"
 
     # 1. GoogleTTS를 사용하여 음성 파일과 타임스탬프를 생성합니다.
     from google_tts import GoogleTTS
     tts = GoogleTTS()
-    prompt = "노릇노릇 익은 삼겹살이 불판 위에서 지글지글, 쫀득한 육즙이 입안 가득 퍼지는 황홀함. 상추쌈과 함께 즐기는 조합, 지금 바로 청운 삼겹살에서 한 끼의 행복을 경험해보세요."
+    prompt = """
+이 집은 진짜...
+와, 이건 미쳤다!
+인생 맛집 등극!
+메뉴 하나하나가
+전부 다 예술이야.
+특히 시그니처는
+꼭 먹어야 할 맛!
+분위기도 최고다.
+지금 당장 가야 해.
+후회는 없을 거야!
+"""
     
     # 프롬프트를 20-30글자로 자르기
-    cut_prompts = cut_prompt_by_word_boundary(prompt)
+    #cut_prompts = cut_prompt_by_word_boundary(prompt)
+    cut_prompts = [line.strip() for line in prompt.split('\n') if line.strip()]
     print(f"원본 프롬프트 길이: {len(prompt)}글자")
     print(f"잘린 프롬프트 개수: {len(cut_prompts)}개")
     for i, cut_prompt in enumerate(cut_prompts):
@@ -184,7 +225,7 @@ if __name__ == '__main__':
         
         if success:
             # 각 음성 파일의 duration 구하기
-            duration = MP3(audio_file).info.length
+            duration = MP3(audio_file).info.length - AUDIO_PRE_CUT_SEC
             print(f"{i+1}번째 음성 파일 길이: {duration:.2f}초")
             
             # 현재 프롬프트의 타임스탬프 계산 (이전 시간을 더해서)
@@ -210,13 +251,13 @@ if __name__ == '__main__':
     
     # 음성 파일들을 하나로 합치기
     final_audio_file = "final.mp3"
-    # if len(cut_prompts) > 1:
-    #     import os
-    #     audio_files = [os.path.abspath(f"{i+1}.mp3") for i in range(len(cut_prompts))]
-    #     merge_videos(audio_files, "final_audio.mp3")
-    #     final_audio_file = "final_audio.mp3"
-    # else:
-    #     final_audio_file = "1.mp3"
+    if len(cut_prompts) > 1:
+        import os
+        audio_files = [os.path.abspath(f"{i+1}.mp3") for i in range(len(cut_prompts))]
+        merge_videos(audio_files, "final_audio.mp3")
+        final_audio_file = "final_audio.mp3"
+    else:
+        final_audio_file = "1.mp3"
     
     # 비디오 에디터 초기화 및 자막 추가
     if all_timestamps:
