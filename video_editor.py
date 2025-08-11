@@ -1,6 +1,7 @@
 import os
 import tempfile
 import ffmpeg
+from mutagen.mp3 import MP3
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from moviepy.audio.io.AudioFileClip import AudioFileClip
 from moviepy.video.VideoClip import TextClip
@@ -20,6 +21,53 @@ def merge_videos(input_path_list: list[str], output_path: str):
         stream = ffmpeg.input(temp_file.name)
         stream = ffmpeg.output(stream, output_path)
         ffmpeg.run(stream)
+
+def cut_prompt_by_word_boundary(text: str, min_length: int = 20, max_length: int = 30) -> list[str]:
+    """
+    텍스트를 20-30글자 사이로 자르되, 공백으로만 잘라서 단어가 짤리지 않도록 합니다.
+    끝까지 다 잘라서 문자열 배열을 반환합니다.
+    
+    Args:
+        text (str): 자를 텍스트
+        min_length (int): 최소 글자수 (기본값: 20)
+        max_length (int): 최대 글자수 (기본값: 30)
+    
+    Returns:
+        list[str]: 잘린 텍스트들의 배열
+    """
+    if len(text) <= max_length:
+        return [text]
+    
+    # 공백으로 단어를 분리
+    words = text.split()
+    result_parts = []
+    current_part = ""
+    
+    for word in words:
+        # 현재 단어를 추가했을 때의 길이 계산
+        test_text = current_part + (" " + word if current_part else word)
+        
+        # 최대 길이를 초과하면 현재 부분을 결과에 추가하고 새 부분 시작
+        if len(test_text) > max_length:
+            if current_part:  # 현재 부분이 있으면 결과에 추가
+                result_parts.append(current_part)
+                current_part = word
+            else:  # 현재 부분이 없으면 첫 번째 단어라도 포함
+                current_part = word
+        else:
+            current_part = test_text
+    
+    # 마지막 부분이 남아있으면 추가
+    if current_part:
+        # 최소 길이 조건 확인
+        if len(current_part) >= min_length:
+            result_parts.append(current_part)
+        elif result_parts:  # 최소 길이보다 짧지만 이전 부분이 있으면 마지막 부분에 추가
+            result_parts[-1] = result_parts[-1] + " " + current_part
+        else:  # 첫 번째 부분이고 최소 길이보다 짧으면 그냥 추가
+            result_parts.append(current_part)
+    
+    return result_parts
 
 class SubtitleClip:
     def __init__(self, text, start_time, duration, font_path='static/fonts/firstFont.ttf', fontsize=36, color='black', bg_color='black'):
@@ -80,18 +128,100 @@ class VideoEditor:
         self.video_clip.write_videofile(output_path, codec="libx264", audio_codec="aac")
         print(f"최종 영상이 '{output_path}'에 저장되었습니다.")
 
+def synthesize_speech(text: str, duration_sec: float):
+    sec_per_ch = duration_sec / len(text)
+
+    # 2. 공백 기준으로 문장을 나누어 단어를 추출
+    words = text.split(' ')
+    
+    # 3. 각 단어의 글자수 * MS_PER_CH를 곱해 단어의 길이를 계산
+    timestamps = []
+    current_time = 0
+    
+    for word in words:
+        if word.strip():  # 빈 문자열이 아닌 경우만 처리
+            word_duration = len(word) * sec_per_ch
+            current_time += word_duration
+            timestamps.append((word, current_time))
+    
+    return timestamps
+
 # 예제 사용법
 if __name__ == '__main__':
+    # import os
+    # audio_files = [os.path.abspath(f"{i+1}.mp3") for i in range(3)]
+    # merge_videos(audio_files, "final_audio.mp3")
+    # final_audio_file = "final_audio.mp3"
+
     # 1. GoogleTTS를 사용하여 음성 파일과 타임스탬프를 생성합니다.
     from google_tts import GoogleTTS
     tts = GoogleTTS()
-    text_to_speak = "안녕하세요, 이것은 영상 편집과 자막 생성 테스트입니다. 각 단어마다 자막이 표시됩니다."
-    audio_file = "test_audio.mp3"
-    success, word_timestamps = tts.synthesize_speech(text_to_speak, audio_file)
-
-    if success:
-        editor = VideoEditor('test_video.mp4', audio_file)
-        editor.add_subtitles_from_timestamps(word_timestamps)
+    prompt = "노릇노릇 익은 삼겹살이 불판 위에서 지글지글, 쫀득한 육즙이 입안 가득 퍼지는 황홀함. 상추쌈과 함께 즐기는 조합, 지금 바로 청운 삼겹살에서 한 끼의 행복을 경험해보세요."
+    
+    # 프롬프트를 20-30글자로 자르기
+    cut_prompts = cut_prompt_by_word_boundary(prompt)
+    print(f"원본 프롬프트 길이: {len(prompt)}글자")
+    print(f"잘린 프롬프트 개수: {len(cut_prompts)}개")
+    for i, cut_prompt in enumerate(cut_prompts):
+        print(f"  {i+1}번째: {cut_prompt} ({len(cut_prompt)}글자)")
+    
+    # 각 잘린 프롬프트마다 TTS 생성 및 타임스탬프 계산
+    all_timestamps = []
+    current_time = 0.0
+    
+    for i, cut_prompt in enumerate(cut_prompts):
+        audio_file = f"{i+1}.mp3"
+        
+        # TTS 생성
+        success = tts.synthesize_speech(
+            cut_prompt,
+            audio_file,
+            #language_code="ko-KR",
+            #voice_name="ko-KR-WaveNet-A"
+            language_code="en-US",
+            voice_name="en-US-Chirp3-HD-Achernar"
+        )
+        
+        if success:
+            # 각 음성 파일의 duration 구하기
+            duration = MP3(audio_file).info.length
+            print(f"{i+1}번째 음성 파일 길이: {duration:.2f}초")
+            
+            # 현재 프롬프트의 타임스탬프 계산 (이전 시간을 더해서)
+            timestamps = synthesize_speech(cut_prompt, duration)
+            
+            # 타임스탬프에 이전 시간을 더해서 조정
+            adjusted_timestamps = []
+            for word, end_time in timestamps:
+                adjusted_end_time = current_time + end_time
+                adjusted_timestamps.append((word, adjusted_end_time))
+            
+            all_timestamps.extend(adjusted_timestamps)
+            
+            # 다음 프롬프트의 시작 시간을 현재 시간 + 현재 duration으로 설정
+            current_time += duration
+        else:
+            print(f"TTS 생성 실패: {cut_prompts[i]}")
+    
+    # 모든 타임스탬프 출력
+    print(f"\n전체 타임스탬프:")
+    for i, (word, end_time) in enumerate(all_timestamps):
+        print(f"  {i+1}: {word} (끝: {end_time:.2f}초)")
+    
+    # 음성 파일들을 하나로 합치기
+    final_audio_file = "final.mp3"
+    # if len(cut_prompts) > 1:
+    #     import os
+    #     audio_files = [os.path.abspath(f"{i+1}.mp3") for i in range(len(cut_prompts))]
+    #     merge_videos(audio_files, "final_audio.mp3")
+    #     final_audio_file = "final_audio.mp3"
+    # else:
+    #     final_audio_file = "1.mp3"
+    
+    # 비디오 에디터 초기화 및 자막 추가
+    if all_timestamps:
+        editor = VideoEditor('test_video.mp4', final_audio_file)
+        editor.add_subtitles_from_timestamps(all_timestamps)
 
         # 4. 최종 영상을 합성하고 저장합니다.
         editor.composite_video("final_output_with_subtitles.mp4")
