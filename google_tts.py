@@ -70,13 +70,13 @@ if __name__ == '__main__':
     tts_client = GoogleTTS()
  
     success, timestamps = tts_client.synthesize_speech(
-        "안녕하세요. 한국어 타임스탬프 기능 테스트입니다.",
+        "노릇노릇 익은 삼겹살이 불판 위에서 지글지글, 쫀득한 육즙이 입안 가득 퍼지는 황홀함. 상추쌈과 함께 즐기는 조합, 지금 바로 청운 삼겹살에서 한 끼의 행복을 경험해보세요.",
         "output.mp3",
         language_code="ko-KR",
         voice_name="ko-KR-WaveNet-A"
     )
 
     if success:
-        print("한국어 타임스탬프가 성공적으로 추출되었습니다:")
+        print("한국어 타임스탬프가 성공적으로 추출되었습니다")
         for word, time in timestamps:
             print(f"- 단어: '{word}', 시간: {time:.2f}초")
