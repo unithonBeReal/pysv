@@ -31,16 +31,16 @@ USER app
 ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
 ENV FLASK_HOST=0.0.0.0
-ENV FLASK_PORT=8000
+ENV FLASK_PORT=9000
 ENV DATA_PATH=/app/data
 ENV CONFIG_FILE_PATH=/app/data/config.json
 
 # Expose port
-EXPOSE 8000
+EXPOSE 9000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/api/config || exit 1
+    CMD curl -f http://localhost:9000/api/config || exit 1
 
 # Use gunicorn for production WSGI server
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "120", "--keep-alive", "2", "--max-requests", "1000", "--max-requests-jitter", "50", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:9000", "--workers", "4", "--timeout", "120", "--keep-alive", "2", "--max-requests", "1000", "--max-requests-jitter", "50", "app:app"]
