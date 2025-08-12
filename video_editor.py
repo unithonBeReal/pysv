@@ -8,7 +8,7 @@ from moviepy.audio.io.AudioFileClip import AudioFileClip
 from moviepy.video.VideoClip import TextClip
 from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
 
-AUDIO_PRE_CUT_SEC = 0.5
+AUDIO_PRE_CUT_SEC = 0.1
 
 def get_temp_file_path(ext: str):
     id = random.randint(100000, 999999)
@@ -18,9 +18,22 @@ def get_temp_file_path(ext: str):
 def cut_video(input_path: str, output_path: str, video_length_sec: int):
     if os.path.exists(output_path):
         os.remove(output_path)
-    stream = ffmpeg.input(input_path)
-    stream = ffmpeg.output(stream, output_path, t=video_length_sec)
-    ffmpeg.run(stream)
+
+    if video_length_sec > 0:
+        (ffmpeg
+        .input(input_path)
+        .output(output_path, an=None)
+        .global_args("-y")
+        .run())
+    else:
+        f = (ffmpeg
+        .input(input_path)
+        .output(output_path, an=None)
+        .global_args("-y")
+        #.compile())
+        .run())
+        #f = " ".join(f)
+        #print(f)
 
 def ffmpeg_merge_videos(input_path_list: list[str], output_path: str):
     if os.path.exists(output_path):
@@ -98,28 +111,26 @@ def cut_prompt_by_word_boundary(text: str, min_length: int = 6, max_length: int 
     return result_parts
 
 class SubtitleClip:
-    def __init__(self, text, start_time, duration, font_path='static/fonts/firstFont.ttf', fontsize=36, color='black', bg_color='black'):
+    def __init__(self, text, start_time, duration):
         self.text = text
         self.start_time = start_time
         self.duration = duration
-        self.font_path = font_path
-        self.fontsize = fontsize
-        self.color = color
-        self.bg_color = bg_color
 
     def to_textclip(self, video_size):
         """ SubtitleClip을 MoviePy의 TextClip으로 변환합니다. """
         clip = TextClip(
             text=self.text,
-            font_size=int(self.fontsize),
-            color=self.color,
-            font=self.font_path,
-            bg_color="white",
+            font_size=int(60),
+            color="white",
+            #font='static/fonts/firstFont.ttf',
+            font='static/fonts/87MMILSANG-Oblique.ttf',
             method="label",
+            stroke_width=5,
+            stroke_color="black",
             margin=(20, 10))
 
         pos_x = (video_size[0] - clip.size[0]) / 2
-        return (clip.with_position((int(pos_x), 300), False)
+        return (clip.with_position((int(pos_x), 400), False)
                 .with_duration(self.duration)
                 .with_start(self.start_time))
 
@@ -182,7 +193,18 @@ def synthesize_speech(text: str, duration_sec: float):
 
 # 예제 사용법
 if __name__ == '__main__':
-    ffmpeg_merge_audios(["1.mp3", "2.mp3", "3.mp3"], "test.mp3")
+    cut_video("./data/100000/video/3.mp4", "./data/100000/cut/3.mp4", 0)
+    #ffmpeg_merge_audios(["1.mp3", "2.mp3", "3.mp3"], "test.mp3")
+    ffmpeg_merge_videos([
+        "./data/100000/cut/0.mp4",
+        "./data/100000/cut/1.mp4",
+        "./data/100000/cut/2.mp4",
+        "./data/100000/cut/3.mp4",
+        "./data/100000/cut/4.mp4",
+        "./data/100000/cut/5.mp4",
+        "./data/100000/cut/6.mp4",
+        "./data/100000/cut/7.mp4",
+    ], "./data/100000/test.mp4")
     exit()
 
     # 1. GoogleTTS를 사용하여 음성 파일과 타임스탬프를 생성합니다.

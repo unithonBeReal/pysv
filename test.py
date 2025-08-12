@@ -20,6 +20,10 @@ def create_new():
 def resume_from():
     video_task = VideoTask.resume_from("568591")
     print(video_task.task_id)
+    try:
+        pass
+    except:
+        pass
     video_task.run()
 
 if __name__ == "__main__":

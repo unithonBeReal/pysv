@@ -205,15 +205,10 @@ class VideoTask:
 
     def cut_videos(self):
         for index in range(self.get_image_count()):
-            if self.options.cut_length_sec <= 0:
-                shutil.copy2(
-                    self.get_generated_video_path(index),
-                    self.get_cutted_video_path(index))
-            else:
-                cut_video(
-                    self.get_generated_video_path(index),
-                    self.get_cutted_video_path(index),
-                    self.options.cut_length_sec)
+            cut_video(
+                self.get_generated_video_path(index),
+                self.get_cutted_video_path(index),
+                self.options.cut_length_sec)
 
     def merge_videos(self):
         input_path_list = [self.get_cutted_video_path(index) for index in range(self.get_image_count())]
