@@ -208,3 +208,5 @@ data
 google-service-key.json
 *.mp3
 *.mp4
+
+.idea

@@ -24,7 +24,51 @@ cp env.example .env
 python app.py
 ```
 
-The server will start on `http://localhost:5000` by default.
+The server will start on `http://localhost:8000` by default.
+
+## Docker Production Setup
+
+### Building and Running with Docker
+
+1. Build the Docker image:
+```bash
+docker build -t pysv .
+```
+
+2. Run the container:
+```bash
+docker run -d \
+  --name pysv-app \
+  -p 8000:8000 \
+  -v $(pwd)/data:/app/data \
+  -e GEMINI_API_KEY=your_api_key_here \
+  pysv
+```
+
+### Using Docker Compose (Recommended)
+
+1. Create a `.env` file with your environment variables:
+```bash
+cp env.example .env
+# Edit .env file with your values, especially GEMINI_API_KEY
+```
+
+2. Run with Docker Compose:
+```bash
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+3. Check logs:
+```bash
+docker-compose -f docker-compose.prod.yml logs -f
+```
+
+4. Stop the service:
+```bash
+docker-compose -f docker-compose.prod.yml down
+```
+
+The application will be available at `http://localhost:8000`.
 
 ### Environment Variables
 
